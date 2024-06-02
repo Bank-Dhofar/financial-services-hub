@@ -1,30 +1,37 @@
 const express = require('express');
-const mongoose = require('mongoose');
+const axios = require('axios');
 const app = express();
-const port = process.env.PORT || 3003;
+const PORT = 3003;
 
-// MongoDB connection
-mongoose.connect('mongodb://mongodb:27017/account-management', {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-}).then(() => {
-    console.log('Connected to MongoDB');
-}).catch(err => {
-    console.error('Failed to connect to MongoDB', err);
-});
-
-// Middleware to parse JSON requests
 app.use(express.json());
 
-// Simple route for the root URL
-app.get('/', (req, res) => {
-    res.send('Account Management Service');
+app.post('/account', async (req, res) => {
+    try {
+        const response = await axios.post('http://python-backend:5000/account', req.body);
+        res.status(response.status).send(response.data);
+    } catch (error) {
+        res.status(error.response ? error.response.status : 500).send(error.message);
+    }
 });
 
-// Define other routes as needed
-// app.use('/api/accounts', require('./routes/accounts'));
+app.put('/account/:account_id', async (req, res) => {
+    try {
+        const response = await axios.put(`http://python-backend:5000/account/${req.params.account_id}`, req.body);
+        res.status(response.status).send(response.data);
+    } catch (error) {
+        res.status(error.response ? error.response.status : 500).send(error.message);
+    }
+});
 
-// Start the server
-app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
+app.delete('/account/:account_id', async (req, res) => {
+    try {
+        const response = await axios.delete(`http://python-backend:5000/account/${req.params.account_id}`);
+        res.status(response.status).send(response.data);
+    } catch (error) {
+        res.status(error.response ? error.response.status : 500).send(error.message);
+    }
+});
+
+app.listen(PORT, () => {
+    console.log(`Frontend running on port ${PORT}`);
 });
