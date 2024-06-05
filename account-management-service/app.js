@@ -4,72 +4,112 @@ const axios = require('axios');
 const app = express();
 const path = require('path');
 
-app.use(express.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+
+app.use(express.json());
+
+// Set EJS as the view engine
+app.set('view engine', 'ejs');
+
+// Specify the directory where your views are located
+app.set('views', path.join(__dirname, 'views'));
 
 // Serve your HTML file
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(path.join(__dirname, 'templates', 'index.html'));
 });
 
-// Define a route handler for the '/login' endpoint
+// Serve the login page
 app.get('/login', (req, res) => {
-    // Serve the login page HTML or redirect to the login page URL
-    res.sendFile(path.join(__dirname, 'login.html'));
+    res.sendFile(path.join(__dirname, 'templates', 'login.html'));
+});
+
+app.get('/signup', (req, res) => {
+    res.sendFile(path.join(__dirname, 'templates', 'signup.html'));
+});
+
+
+// Handle signup form submission
+app.post('/signup', async (req, res) => {
+    try {
+        const { name, balance } = req.body;
+        const response = await axios.post('http://127.0.0.1:5001/signup', { name, balance });
+        if (response.data.success) {
+            res.redirect(`/user-info?account_number=${response.data.account_number}`); // Redirect to user-info page
+        } else {
+            res.status(400).send(response.data.message); // Show error message
+        }
+    } catch (error) {
+        console.error('Error signing up:', error.message);
+        if (error.response) {
+            console.error('Error response data:', error.response.data);
+            res.status(error.response.status).send(error.response.data);
+        } else if (error.request) {
+            console.error('No response received:', error.request);
+            res.status(500).send('No response received from backend server');
+        } else {
+            res.status(500).send('Internal Server Error');
+        }
+    }
 });
 
 app.post('/login', async (req, res) => {
     try {
         const account_number = req.body.account_number;
-        const response = await axios.post('http://localhost:5000/login', { account_number });
-        // Assuming Flask returns a success message if login is successful
+        console.log('Request Body:', req.body);
+        
+        const response = await axios.post('http://127.0.0.1:5001/login', { account_number });
+        console.log('Backend Response:', response.data);
+
         if (response.data.success) {
-            res.redirect('/success');
+            res.json({ success: true });
         } else {
-            // If login fails, display an error message on the login page
-            res.sendFile(path.join(__dirname, 'login.html'));
+            res.json({ success: false });
         }
     } catch (error) {
-        console.error('Error logging in:', error);
-        res.status(500).send('Internal Server Error');
+        console.error('Error logging in:', error.message);
+        if (error.response) {
+            console.error('Error response data:', error.response.data);
+            res.status(error.response.status).json({ success: false, message: error.response.data });
+        } else if (error.request) {
+            console.error('No response received:', error.request);
+            res.status(500).json({ success: false, message: 'No response received from backend server' });
+        } else {
+            res.status(500).json({ success: false, message: 'Internal Server Error' });
+        }
     }
 });
 
-// Route for creating users
-app.post('/api/users', async (req, res) => {
-    const { username, email, password } = req.body;
+// Route for displaying user info
+app.get('/user-info', async (req, res) => {
     try {
-        // Make a request to your Flask API endpoint to create a user
-        const response = await axios.post('http://python-backend:5000/api/user', req.body);
-        res.status(response.status).send(response.data);
+        const account_number = req.query.account_number;
+        const response = await axios.get(`http://127.0.0.1:5001/user-info?account_number=${account_number}`);
+        
+        if (response.data.success) {
+            res.render('user-info', { user: response.data.user });
+        } else {
+            res.status(404).json({ success: false, message: 'User not found' });
+        }
+        
     } catch (error) {
-        console.error('Error creating user:', error);
-        res.status(error.response ? error.response.status : 500).send(error.message);
+        console.error('Error fetching user info:', error.message);
+        if (error.response) {
+            console.error('Error response data:', error.response.data);
+            res.status(error.response.status).send(error.response.data);
+        } else if (error.request) {
+            console.error('No response received:', error.request);
+            res.status(500).send('No response received from backend server');
+        } else {
+            res.status(500).send('Internal Server Error');
+        }
     }
 });
 
-// Route for updating account information
-app.put('/account/:account_id', async (req, res) => {
-    try {
-        const response = await axios.put(`http://python-backend:5000/api/user/${req.params.account_id}`, req.body);
-        res.status(response.status).send(response.data);
-    } catch (error) {
-        res.status(error.response ? error.response.status : 500).send(error.message);
-    }
-});
 
-// Route for deleting accounts
-app.delete('/account/:account_id', async (req, res) => {
-    try {
-        const response = await axios.delete(`http://python-backend:5000/api/user/${req.params.account_id}`);
-        res.status(response.status).send(response.data);
-    } catch (error) {
-        res.status(error.response ? error.response.status : 500).send(error.message);
-    }
-});
-
-// Start the Express.js server
-const port = process.env.PORT || 3004;
+const port = process.env.PORT || 3006;
 app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
+    console.log()
 });

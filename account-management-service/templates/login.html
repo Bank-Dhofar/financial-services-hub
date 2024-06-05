@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        label, input {
+            margin: 10px 0;
+        }
+        label {
+            color: #666;
+        }
+        input[type="text"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            width: 100%;
+            max-width: 400px;
+        }
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            margin-top: 20px;
+            background-color: #4a107d;
+            color: #fff;
+            text-decoration: none;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+            cursor: pointer;
+        }
+        .button:hover {
+            background-color: #9c64c1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Login</h1>
+        <form id="loginForm">
+            <label for="account_number">Account Number:</label>
+            <input type="text" id="account_number" name="account_number" required><br><br>
+            <input type="submit" value="Login">
+        </form>
+        <p id="error-message" style="color: red; display: none;">Login failed. Please try again.</p>
+
+        <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+        <script>
+            // Function to handle form submission
+            async function handleLogin(event) {
+                event.preventDefault(); // Prevent default form submission
+                
+                const accountNumber = document.getElementById('account_number').value;
+                const errorMessage = document.getElementById('error-message');
+                
+                try {
+                    const response = await axios.post('/login', { account_number: accountNumber });
+                    
+                    if (response.data.success) {
+                        window.location.href = `/user-info?account_number=${accountNumber}`;
+                    } else {
+                        errorMessage.style.display = 'block';
+                    }
+                } catch (error) {
+                    console.error('Error logging in:', error.message);
+                    errorMessage.style.display = 'block';
+                }
+            }
+
+            // Attach event listener to the form submission
+            document.getElementById('loginForm').addEventListener('submit', handleLogin);
+        </script>
+    </div>
+</body>
+</html>
