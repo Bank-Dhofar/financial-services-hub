@@ -1,64 +1,141 @@
-from flask import Flask, request, jsonify, redirect, url_for, render_template
-from database import create_user, find_user, update_balance, delete_user
+from flask import Flask, request, jsonify
+from pymongo import MongoClient
+import os
+import random
+import logging
+import requests
+import traceback
+from bson import ObjectId
 
 app = Flask(__name__)
 
-# Your database-related routes
-@app.route('/api/user', methods=['POST'])
-def create_new_user():
-    data = request.json
-    create_user(data['name'], data['account_number'], data['balance'])
-    return jsonify({'message': 'User created successfully'}), 201
+# MongoDB connection
+mongo_uri = os.getenv('MONGO_URI', 'mongodb://localhost:27017/bank')
+print("MongoDB URI:", mongo_uri)
+client = MongoClient(mongo_uri)
+db = client.get_database()
 
-@app.route('/api/user/<int:account_number>', methods=['GET'])
-def get_user(account_number):
-    user = find_user(account_number)
-    if user:
-        return jsonify(user), 200
-    else:
-        return jsonify({'message': 'User not found'}), 404
+# Logging configuration
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-@app.route('/api/user/<int:account_number>', methods=['PUT'])
-def update_user_balance(account_number):
-    data = request.json
-    update_balance(account_number, data['balance'])
-    return jsonify({'message': 'User balance updated successfully'}), 200
+def generate_account_number():
+    return str(random.randint(100000, 999999))
 
-@app.route('/api/user/<int:account_number>', methods=['DELETE'])
-def delete_existing_user(account_number):
-    delete_user(account_number)
-    return jsonify({'message': 'User deleted successfully'}), 200
+@app.route('/signup', methods=['POST'])
+def signup():
+    try:
+        # Get user details from the request
+        data = request.get_json()
+        name = data.get('name')
+        balance = data.get('balance')
+        
+        try:
+            balance = int(balance)
+        except ValueError:
+            logger.error('Invalid balance format.')
+            return jsonify({'success': False, 'message': 'Invalid balance format. Balance must be an integer.'}), 400
 
-# Your login and signup routes
-@app.route('/')
-def index():
-    return render_template('index.html')
 
-@app.route('/login', methods=['GET', 'POST'])
+        # Generate a random account number
+        account_number = generate_account_number()
+
+        # Insert user details into the database
+        db.users.insert_one({"name": name, "account_number": account_number, "balance": balance})
+
+        # Return success response to the frontend
+        return jsonify({'success': True, "name": name, "account_number": account_number, "balance": balance}), 201
+    except Exception as e:
+        logger.error(f'Error signing up: {e}')
+        return jsonify({'success': False, 'message': 'Internal server error.'}), 500
+
+
+@app.route('/login', methods=['POST'])
 def login():
     if request.method == 'POST':
-        account_number = request.form['account_number']
-        user = find_user(account_number)
+        data = request.get_json()  # Parse JSON data
+        account_number = data.get('account_number')
+        
+        try:
+            user = db.users.find_one({"account_number": account_number})
+        except Exception as e:
+            logger.error(f'Error accessing the database: {e}')
+            return jsonify({'success': False, 'message': 'Internal server error.'}), 500
+    
         if user:
-            # User exists, you can perform further validation here
-            return redirect(url_for('success'))
+            return jsonify({'success': True, 'account_number': account_number}), 200
         else:
-            return render_template('login.html', message='Invalid account number. Please try again.')
-    return render_template('login.html', message='')
+            logger.info('Invalid account number.')
+            return jsonify({'success': False, 'message': 'Invalid account number. Please try again.'}), 401
 
-@app.route('/signup', methods=['GET', 'POST'])
-def signup():
-    if request.method == 'POST':
-        name = request.form['name']
-        account_number = request.form['account_number']
-        balance = request.form['balance']
-        create_user(name, account_number, balance)
-        return redirect(url_for('success'))
-    return render_template('signup.html')
+    else:
+        return jsonify({'success': False, 'message': 'Only POST method is supported for login.'}), 405
 
-@app.route('/success')
-def success():
-    return 'Success!'
+@app.route('/user-info', methods=['GET'])
+def user_info():
+    account_number = request.args.get('account_number')
+    
+    try:
+        user = db.users.find_one({"account_number": account_number})
+        if user:
+            user['_id'] = str(user['_id'])
+            return jsonify({'success': True, 'user': user}), 200
+        else:
+            return jsonify({'success': False, 'message': 'User not found.'}), 404
+    except Exception as e:
+        logger.error(f'Error accessing the database: {e}')
+        return jsonify({'success': False, 'message': 'Internal server error.'}), 500
+
+@app.route('/transfer', methods=['POST'])
+def transfer():
+    from_account = request.json.get('from_account')
+    to_account = request.json.get('to_account')
+    amount = request.json.get('amount')
+
+    if not from_account or not to_account or not amount:
+        logger.error('All fields are required.')
+        return jsonify({'success': False, 'message': 'All fields are required.'}), 400
+
+    try:
+        amount = float(amount)
+    except ValueError:
+        logger.error('Invalid amount format.')
+        return jsonify({'success': False, 'message': 'Invalid amount format.'}), 400
+
+    try:
+        from_user = db.users.find_one({"account_number": from_account})
+        to_user = db.users.find_one({"account_number": to_account})
+    except Exception as e:
+        logger.error(f'Error accessing the database: {e}')
+        return jsonify({'success': False, 'message': 'Internal server error.'}), 500
+
+    if from_user and to_user and from_user['balance'] >= amount:
+        try:
+            db.users.update_one({"account_number": from_account}, {"$inc": {"balance": -amount}})
+            db.users.update_one({"account_number": to_account}, {"$inc": {"balance": amount}})
+        except Exception as e:
+            logger.error(f'Error updating the database: {e}')
+            return jsonify({'success': False, 'message': 'Internal server error.'}), 500
+
+        return jsonify({'success': True, 'message': 'Transfer completed.'}), 200
+    else:
+        return jsonify({'success': False, 'message': 'Transfer failed.'}), 400
+
+@app.route('/report', methods=['GET'])
+def report():
+    account_number = request.args.get('account_number')
+    if not account_number:
+        return jsonify({'success': False, 'message': 'Account number is required.'}), 400
+
+    try:
+        response = requests.get(f'http://reportingservice:4000/api/report/{account_number}')
+        response.raise_for_status()
+        transfers = response.json()
+    except requests.RequestException as e:
+        logger.error(f'Error fetching report: {e}')
+        return jsonify({'success': False, 'message': 'Error fetching report.'}), 500
+
+    return jsonify({'success': True, 'transfers': transfers}), 200
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='127.0.0.1', port=5001)
