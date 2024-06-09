@@ -3,11 +3,8 @@ from pymongo import MongoClient
 import os
 import random
 import logging
-import requests
-import traceback
 from bson import ObjectId
 from fpdf import FPDF
-from datetime import datetime
 
 app = Flask(__name__)
 
@@ -147,7 +144,7 @@ def generate_pdf(user):
         transaction_date = transaction['timestamp'].strftime("%Y-%m-%d %H:%M:%S")
         pdf.cell(200, 10, txt=f"{transaction_date} - {transaction['type']} - ${transaction['amount']}", ln=True, align='L')
 
-    file_path = f"/tmp/{user['account_number']}_report.pdf"
+    file_path = os.path.join(os.getcwd(), f"{user['account_number']}_report.pdf")
     pdf.output(file_path)
     return file_path
 
@@ -165,7 +162,7 @@ def generate_report():
         file_path = generate_pdf(user)
         return send_file(file_path, as_attachment=True)
     except Exception as e:
-        print("Error generating report:", str(e))
+        logger.error(f"Error generating report: {e}")
         return jsonify({'error': 'Error generating report'}), 500
 
 
