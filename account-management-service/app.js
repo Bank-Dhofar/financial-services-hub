@@ -6,13 +6,10 @@ const path = require('path');
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-
 app.use(express.json());
 
 // Set EJS as the view engine
 app.set('view engine', 'ejs');
-
-// Specify the directory where your views are located
 app.set('views', path.join(__dirname, 'views'));
 
 // Serve your HTML file
@@ -104,6 +101,21 @@ app.get('/user-info', async (req, res) => {
         } else {
             res.status(500).send('Internal Server Error');
         }
+    }
+});
+
+
+app.get('/generate-report', async (req, res) => {
+    try {
+        const account_number = req.query.account_number;
+        const response = await axios.get(`http://127.0.0.1:5001/generate-report?account_number=${account_number}`, { responseType: 'arraybuffer' });
+
+        res.setHeader('Content-Disposition', 'attachment; filename=report.pdf');
+        res.setHeader('Content-Type', 'application/pdf');
+        res.send(response.data);
+    } catch (error) {
+        console.error('Error generating report:', error.message);
+        res.status(500).send('Error generating report.');
     }
 });
 

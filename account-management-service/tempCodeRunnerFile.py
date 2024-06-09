@@ -1,6 +1,5 @@
 from pymongo import MongoClient
 from datetime import datetime
-import random
 
 client = MongoClient('mongodb://localhost:27017/')
 db = client['bank']
@@ -23,32 +22,6 @@ def create_user(name, account_number, balance):
         'transactions': []
     }
     db.users.insert_one(user)
-
-def generate_mock_transactions():
-    transaction_types = ['deposit', 'withdrawal', 'transfer']
-    users = list(db.users.find())
-    for user in users:
-        # Generate 2-3 random transactions for each user
-        num_transactions = random.randint(2, 3)
-        for _ in range(num_transactions):
-            transaction_type = random.choice(transaction_types)
-            if transaction_type == 'transfer':
-                # For transfer transactions, randomly select a recipient
-                recipient = random.choice(users)
-                # Ensure recipient is not the same as the sender
-                while recipient['account_number'] == user['account_number']:
-                    recipient = random.choice(users)
-                amount = random.randint(100, 500)  # Random transfer amount
-                add_transaction(user['account_number'], 'transfer', -amount)
-                add_transaction(recipient['account_number'], 'transfer', amount)
-                print(f"Transferred {amount} from {user['name']} to {recipient['name']}")
-            else:
-                amount = random.randint(50, 300)  # Random amount for deposit/withdrawal
-                add_transaction(user['account_number'], transaction_type, amount)
-                print(f"{transaction_type.capitalize()} of {amount} for {user['name']}")
-
-# Populate database with mock transactions
-generate_mock_transactions()
 
 for data in user_data:
     create_user(data['name'], data['account_number'], data['balance'])
