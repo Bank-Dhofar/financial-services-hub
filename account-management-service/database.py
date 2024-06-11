@@ -11,7 +11,6 @@ db.users.drop()
 user_data = [
     {'name': 'Alice', 'account_number': '1', 'balance': 1000},
     {'name': 'Bob', 'account_number': '2', 'balance': 2500},
-    {'name': 'Charlie', 'account_number': '3', 'balance': 500},
     {'name': 'David', 'account_number': '4', 'balance': 1500}
 ]
 

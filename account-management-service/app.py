@@ -106,23 +106,28 @@ def transfer():
         logger.error(f'Error accessing the database: {e}')
         return jsonify({'success': False, 'message': 'Internal server error.'}), 500
 
-    if from_user and to_user and from_user['balance'] >= amount:
-        try:
-            # Update balances
-            db.users.update_one({"account_number": from_account}, {"$inc": {"balance": -amount}})
-            db.users.update_one({"account_number": to_account}, {"$inc": {"balance": amount}})
+    if not from_user or not to_user:
+        logger.info('Invalid account numbers.')
+        return jsonify({'success': False, 'message': 'Invalid account numbers.'}), 400
 
-            # Log transactions
-            add_transaction(from_account, 'transfer', -amount, note=f'Transfer to {to_account}')
-            add_transaction(to_account, 'transfer', amount, note=f'Transfer from {from_account}')
+    if from_user['balance'] < amount:
+        logger.info('Insufficient balance.')
+        return jsonify({'success': False, 'message': 'Insufficient balance.'}), 400
 
-            return jsonify({'success': True, 'message': 'Transfer successful.'}), 200
-        except Exception as e:
-            logger.error(f'Error during transfer: {e}')
-            return jsonify({'success': False, 'message': 'Transfer failed.'}), 500
-    else:
-        logger.info('Invalid account number or insufficient balance.')
-        return jsonify({'success': False, 'message': 'Invalid account number or insufficient balance.'}), 400
+    try:
+        # Update balances
+        db.users.update_one({"account_number": from_account}, {"$inc": {"balance": -amount}})
+        db.users.update_one({"account_number": to_account}, {"$inc": {"balance": amount}})
+
+        # Log transactions
+        add_transaction(from_account, 'transfer', -amount, note=f'Transfer to {to_account}')
+        add_transaction(to_account, 'transfer', amount, note=f'Transfer from {from_account}')
+
+        return jsonify({'success': True, 'message': 'Transfer successful.'}), 200
+    except Exception as e:
+        logger.error(f'Error during transfer: {e}')
+        return jsonify({'success': False, 'message': 'Transfer failed.'}), 500
+
 
 @app.route('/generate-report', methods=['GET'])
 def generate_report():
@@ -163,7 +168,7 @@ def add_transaction(account_number, transaction_type, amount, note=''):
     transaction = {
         'type': transaction_type,
         'amount': amount,
-        'timestamp': datetime.utcnow(),
+        'timestamp': datetime.datetime.utcnow(),
         'note': note
     }
     db.users.update_one(
