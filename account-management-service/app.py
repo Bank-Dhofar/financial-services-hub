@@ -5,6 +5,7 @@ import random
 import logging
 from bson import ObjectId
 from fpdf import FPDF
+import datetime
 
 app = Flask(__name__)
 
@@ -35,19 +36,17 @@ def signup():
             logger.error('Invalid balance format.')
             return jsonify({'success': False, 'message': 'Invalid balance format. Balance must be an integer.'}), 400
 
-
         # Generate a random account number
         account_number = generate_account_number()
 
         # Insert user details into the database
-        db.users.insert_one({"name": name, "account_number": account_number, "balance": balance})
+        db.users.insert_one({"name": name, "account_number": account_number, "balance": balance, "transactions": []})
 
         # Return success response to the frontend
         return jsonify({'success': True, "name": name, "account_number": account_number, "balance": balance}), 201
     except Exception as e:
         logger.error(f'Error signing up: {e}')
         return jsonify({'success': False, 'message': 'Internal server error.'}), 500
-
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -66,7 +65,6 @@ def login():
         else:
             logger.info('Invalid account number.')
             return jsonify({'success': False, 'message': 'Invalid account number. Please try again.'}), 401
-
     else:
         return jsonify({'success': False, 'message': 'Only POST method is supported for login.'}), 405
 
@@ -110,61 +108,68 @@ def transfer():
 
     if from_user and to_user and from_user['balance'] >= amount:
         try:
+            # Update balances
             db.users.update_one({"account_number": from_account}, {"$inc": {"balance": -amount}})
             db.users.update_one({"account_number": to_account}, {"$inc": {"balance": amount}})
+
+            # Log transactions
+            add_transaction(from_account, 'transfer', -amount, note=f'Transfer to {to_account}')
+            add_transaction(to_account, 'transfer', amount, note=f'Transfer from {from_account}')
+
+            return jsonify({'success': True, 'message': 'Transfer successful.'}), 200
         except Exception as e:
-            logger.error(f'Error updating the database: {e}')
-            return jsonify({'success': False, 'message': 'Internal server error.'}), 500
-
-        return jsonify({'success': True, 'message': 'Transfer completed.'}), 200
+            logger.error(f'Error during transfer: {e}')
+            return jsonify({'success': False, 'message': 'Transfer failed.'}), 500
     else:
-        return jsonify({'success': False, 'message': 'Transfer failed.'}), 400
-
-class PDF(FPDF):
-    def header(self):
-        self.set_font('Arial', 'B', 12)
-        self.cell(0, 10, 'User Report', 0, 1, 'C')
-
-    def footer(self):
-        self.set_y(-15)
-        self.set_font('Arial', 'I', 8)
-        self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
-
-def generate_pdf(user):
-    pdf = PDF()
-    pdf.add_page()
-
-    pdf.set_font("Arial", size=12)
-    pdf.cell(200, 10, txt=f"User Report for {user['name']}", ln=True, align='C')
-    pdf.cell(200, 10, txt=f"Account Number: {user['account_number']}", ln=True, align='L')
-    pdf.cell(200, 10, txt=f"Balance: ${user['balance']}", ln=True, align='L')
-    pdf.cell(200, 10, txt="Transactions:", ln=True, align='L')
-
-    for transaction in user.get('transactions', []):
-        transaction_date = transaction['timestamp'].strftime("%Y-%m-%d %H:%M:%S")
-        pdf.cell(200, 10, txt=f"{transaction_date} - {transaction['type']} - ${transaction['amount']}", ln=True, align='L')
-
-    file_path = os.path.join(os.getcwd(), f"{user['account_number']}_report.pdf")
-    pdf.output(file_path)
-    return file_path
+        logger.info('Invalid account number or insufficient balance.')
+        return jsonify({'success': False, 'message': 'Invalid account number or insufficient balance.'}), 400
 
 @app.route('/generate-report', methods=['GET'])
 def generate_report():
+    account_number = request.args.get('account_number')
+
     try:
-        account_number = request.args.get('account_number')
-        if not account_number:
-            return jsonify({'error': 'Account number is required'}), 400
-
-        user = db.users.find_one({'account_number': account_number})
+        user = db.users.find_one({"account_number": account_number})
         if not user:
-            return jsonify({'error': 'User not found'}), 404
+            return jsonify({'success': False, 'message': 'User not found.'}), 404
+        
+        # Create PDF
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
 
-        file_path = generate_pdf(user)
-        return send_file(file_path, as_attachment=True)
+        # Add user info to PDF
+        pdf.cell(200, 10, txt=f"Account Report for {user['name']}", ln=True, align='C')
+        pdf.cell(200, 10, txt=f"Account Number: {user['account_number']}", ln=True, align='L')
+        pdf.cell(200, 10, txt=f"Balance: {user['balance']}", ln=True, align='L')
+        pdf.cell(200, 10, txt="", ln=True, align='L')  # Add a blank line
+
+        # Add transaction history
+        pdf.cell(200, 10, txt="Transaction History:", ln=True, align='L')
+        for transaction in user.get('transactions', []):
+            pdf.cell(200, 10, txt=f"{transaction['timestamp'].strftime('%Y-%m-%d %H:%M:%S')} - {transaction['type'].capitalize()} of {transaction['amount']} - {transaction['note']}", ln=True, align='L')
+
+        # Save the PDF to a file
+        report_path = f"/tmp/account_report_{user['account_number']}.pdf"
+        pdf.output(report_path)
+
+        return send_file(report_path, as_attachment=True)
+
     except Exception as e:
-        logger.error(f"Error generating report: {e}")
-        return jsonify({'error': 'Error generating report'}), 500
+        logger.error(f'Error generating report: {e}')
+        return jsonify({'success': False, 'message': 'Internal server error.'}), 500
 
+def add_transaction(account_number, transaction_type, amount, note=''):
+    transaction = {
+        'type': transaction_type,
+        'amount': amount,
+        'timestamp': datetime.utcnow(),
+        'note': note
+    }
+    db.users.update_one(
+        {'account_number': account_number},
+        {'$push': {'transactions': transaction}}
+    )
 
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=5001)
+    app.run(debug=True)

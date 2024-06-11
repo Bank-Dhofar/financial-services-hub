@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Profile</title>
+    <title>Financial Services Hub</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: Calibri, sans-serif;
             margin: 0;
             padding: 0;
             background-color: #f4f4f4;
@@ -23,49 +23,33 @@
             text-align: center;
             color: #333;
         }
-        .user-info {
-            margin: 20px 0;
-        }
-        .user-info label {
-            font-weight: bold;
+        p {
+            text-align: center;
             color: #666;
-        }
-        .user-info p {
-            margin: 5px 0;
         }
         .button {
             display: inline-block;
             padding: 10px 20px;
-            margin-top: 20px;
-            background-color: #4a107d;
+            margin: 20px;
+            background-color: #6500b3;
             color: #fff;
             text-decoration: none;
-            border: none;
             border-radius: 5px;
             transition: background-color 0.3s;
-            cursor: pointer;
         }
         .button:hover {
-            background-color: #9c64c1;
+            background-color: #ad89c9;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>User Profile</h1>
-        <div class="user-info">
-            <label>Name:</label>
-            <p><%= user.name %></p>
-            <label>Account Number:</label>
-            <p><%= user.account_number %></p>
-            <label>Balance:</label>
-            <p><%= user.balance %></p>
+        <h1>Welcome to the Financial Services Hub</h1>
+        <p>You can manage your account, transfer funds and generate account usage reports</p>
+        <div style="text-align: center;">
+            <a href="/login" class="button">Login</a>
+            <a href="/signup" class="button">Sign Up</a>
         </div>
-        <a href="/" class="button">Home</a>
-        <a href="/generate-report?account_number=<%= user.account_number %>" class="button">Generate Report</a>
-
-        <!-- Add button for transferring funds -->
-        <a href="/transfer-funds" class="button">Transfer Funds</a>
     </div>
 </body>
 </html>

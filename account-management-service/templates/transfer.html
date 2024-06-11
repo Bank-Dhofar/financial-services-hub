@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Profile</title>
+    <title>Fund Transfer</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -12,7 +12,7 @@
             background-color: #f4f4f4;
         }
         .container {
-            max-width: 800px;
+            max-width: 600px;
             margin: 50px auto;
             padding: 20px;
             background-color: #fff;
@@ -23,20 +23,21 @@
             text-align: center;
             color: #333;
         }
-        .user-info {
-            margin: 20px 0;
-        }
-        .user-info label {
+        label {
             font-weight: bold;
             color: #666;
         }
-        .user-info p {
-            margin: 5px 0;
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0 20px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
         }
         .button {
             display: inline-block;
             padding: 10px 20px;
-            margin-top: 20px;
             background-color: #4a107d;
             color: #fff;
             text-decoration: none;
@@ -52,20 +53,16 @@
 </head>
 <body>
     <div class="container">
-        <h1>User Profile</h1>
-        <div class="user-info">
-            <label>Name:</label>
-            <p><%= user.name %></p>
-            <label>Account Number:</label>
-            <p><%= user.account_number %></p>
-            <label>Balance:</label>
-            <p><%= user.balance %></p>
-        </div>
-        <a href="/" class="button">Home</a>
-        <a href="/generate-report?account_number=<%= user.account_number %>" class="button">Generate Report</a>
-
-        <!-- Add button for transferring funds -->
-        <a href="/transfer-funds" class="button">Transfer Funds</a>
+        <h1>Fund Transfer</h1>
+        <form id="transferForm" action="/transfer-funds" method="post">
+            <label for="fromAccount">From Account Number:</label>
+            <input type="text" id="fromAccount" name="from_account" required>
+            <label for="toAccount">To Account Number:</label>
+            <input type="text" id="toAccount" name="to_account" required>
+            <label for="amount">Amount:</label>
+            <input type="number" id="amount" name="amount" min="0" step="0.01" required>
+            <button type="submit" class="button">Transfer</button>
+        </form>
     </div>
 </body>
 </html>

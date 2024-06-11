@@ -119,6 +119,35 @@ app.get('/generate-report', async (req, res) => {
     }
 });
 
+// Serve the fund transfer page
+app.get('/transfer-funds', (req, res) => {
+    res.sendFile(path.join(__dirname, 'templates', 'transfer.html'));
+});
+
+// Handle fund transfer form submission
+app.post('/transfer-funds', async (req, res) => {
+    try {
+        const { from_account, to_account, amount } = req.body;
+        const response = await axios.post('http://127.0.0.1:5001/transfer-funds', { from_account, to_account, amount });
+
+        if (response.data.success) {
+            res.redirect(`/user-info?account_number=${from_account}`); // Redirect to user-info page
+        } else {
+            res.status(400).send(response.data.message); // Show error message
+        }
+    } catch (error) {
+        console.error('Error transferring funds:', error.message);
+        if (error.response) {
+            console.error('Error response data:', error.response.data);
+            res.status(error.response.status).send(error.response.data);
+        } else if (error.request) {
+            console.error('No response received:', error.request);
+            res.status(500).send('No response received from backend server');
+        } else {
+            res.status(500).send('Internal Server Error');
+        }
+    }
+});
 
 const port = process.env.PORT || 3006;
 app.listen(port, () => {

@@ -24,35 +24,6 @@ def create_user(name, account_number, balance):
     }
     db.users.insert_one(user)
 
-def generate_mock_transactions():
-    transaction_types = ['deposit', 'withdrawal', 'transfer']
-    users = list(db.users.find())
-    for user in users:
-        # Generate 2-3 random transactions for each user
-        num_transactions = random.randint(2, 3)
-        for _ in range(num_transactions):
-            transaction_type = random.choice(transaction_types)
-            if transaction_type == 'transfer':
-                # For transfer transactions, randomly select a recipient
-                recipient = random.choice(users)
-                # Ensure recipient is not the same as the sender
-                while recipient['account_number'] == user['account_number']:
-                    recipient = random.choice(users)
-                amount = random.randint(100, 500)  # Random transfer amount
-                add_transaction(user['account_number'], 'transfer', -amount)
-                add_transaction(recipient['account_number'], 'transfer', amount)
-                print(f"Transferred {amount} from {user['name']} to {recipient['name']}")
-            else:
-                amount = random.randint(50, 300)  # Random amount for deposit/withdrawal
-                add_transaction(user['account_number'], transaction_type, amount)
-                print(f"{transaction_type.capitalize()} of {amount} for {user['name']}")
-
-# Populate database with mock transactions
-generate_mock_transactions()
-
-for data in user_data:
-    create_user(data['name'], data['account_number'], data['balance'])
-
 # Function to add a transaction for a user
 def add_transaction(account_number, transaction_type, amount):
     transaction = {
@@ -65,11 +36,55 @@ def add_transaction(account_number, transaction_type, amount):
         {'$push': {'transactions': transaction}}
     )
 
+def generate_mock_transactions():
+    transaction_types = ['deposit', 'withdrawal']
+    users = list(db.users.find())
+    for user in users:
+        # Generate 2-3 random transactions for each user
+        num_transactions = random.randint(2, 3)
+        for _ in range(num_transactions):
+            transaction_type = random.choice(transaction_types)
+            amount = random.randint(50, 300)  # Random amount for deposit/withdrawal
+            if transaction_type == 'withdrawal':
+                amount = -amount
+            add_transaction(user['account_number'], transaction_type, amount)
+            db.users.update_one(
+                {'account_number': user['account_number']},
+                {'$inc': {'balance': amount}}
+            )
+            print(f"{transaction_type.capitalize()} of {abs(amount)} for {user['name']}")
+
+# Create users and populate the database
+for data in user_data:
+    create_user(data['name'], data['account_number'], data['balance'])
+
+# Populate database with mock transactions
+generate_mock_transactions()
+
 # Example usage of adding transactions
 add_transaction('1', 'deposit', 500)
-add_transaction('2', 'withdrawal', 300)
+db.users.update_one(
+    {'account_number': '1'},
+    {'$inc': {'balance': 500}}
+)
+
+add_transaction('2', 'withdrawal', -300)
+db.users.update_one(
+    {'account_number': '2'},
+    {'$inc': {'balance': -300}}
+)
+
 add_transaction('3', 'deposit', 200)
-add_transaction('4', 'withdrawal', 100)
+db.users.update_one(
+    {'account_number': '3'},
+    {'$inc': {'balance': 200}}
+)
+
+add_transaction('4', 'withdrawal', -100)
+db.users.update_one(
+    {'account_number': '4'},
+    {'$inc': {'balance': -100}}
+)
 
 # Query to find duplicate entries based on the account_number field
 duplicate_accounts = db.users.aggregate([
