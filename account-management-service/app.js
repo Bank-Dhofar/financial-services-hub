@@ -31,7 +31,7 @@ app.get('/signup', (req, res) => {
 app.post('/signup', async (req, res) => {
     try {
         const { name, balance } = req.body;
-        const response = await axios.post('http://127.0.0.1:5001/signup', { name, balance });
+        const response = await axios.post('http://127.0.0.1:5000/signup', { name, balance });
         if (response.data.success) {
             res.redirect(`/user-info?account_number=${response.data.account_number}`); // Redirect to user-info page
         } else {
@@ -56,7 +56,7 @@ app.post('/login', async (req, res) => {
         const account_number = req.body.account_number;
         console.log('Request Body:', req.body);
         
-        const response = await axios.post('http://127.0.0.1:5001/login', { account_number });
+        const response = await axios.post('http://127.0.0.1:5000/login', { account_number });
         console.log('Backend Response:', response.data);
 
         if (response.data.success) {
@@ -82,7 +82,7 @@ app.post('/login', async (req, res) => {
 app.get('/user-info', async (req, res) => {
     try {
         const account_number = req.query.account_number;
-        const response = await axios.get(`http://127.0.0.1:5001/user-info?account_number=${account_number}`);
+        const response = await axios.get(`http://127.0.0.1:5000/user-info?account_number=${account_number}`);
         
         if (response.data.success) {
             res.render('user-info', { user: response.data.user });
@@ -108,7 +108,7 @@ app.get('/user-info', async (req, res) => {
 app.get('/generate-report', async (req, res) => {
     try {
         const account_number = req.query.account_number;
-        const response = await axios.get(`http://127.0.0.1:5001/generate-report?account_number=${account_number}`, { responseType: 'arraybuffer' });
+        const response = await axios.get(`http://127.0.0.1:5000/generate-report?account_number=${account_number}`, { responseType: 'arraybuffer' });
 
         res.setHeader('Content-Disposition', 'attachment; filename=report.pdf');
         res.setHeader('Content-Type', 'application/pdf');
@@ -128,7 +128,7 @@ app.get('/transfer-funds', (req, res) => {
 app.post('/transfer-funds', async (req, res) => {
     try {
         const { from_account, to_account, amount } = req.body;
-        const response = await axios.post('http://127.0.0.1:5001/transfer-funds', { from_account, to_account, amount });
+        const response = await axios.post('http://127.0.0.1:5000/transfer-funds', { from_account, to_account, amount });
 
         if (response.data.success) {
             res.redirect(`/user-info?account_number=${from_account}`); // Redirect to user-info page
